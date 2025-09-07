@@ -3,12 +3,49 @@ import { usePurchaseList } from '@/hooks/use-purchase-list';
 import { PageHeader } from './page-header';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Loader2, ShoppingCart } from 'lucide-react';
+import { Loader2, PackagePlus, ShoppingCart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Input } from './ui/input';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export function PurchaseListClient() {
   const { purchaseList, loading, error, generateList, addStock, generatedAt } = usePurchaseList();
+  const [purchasedQuantities, setPurchasedQuantities] = useState<Record<string, number | string>>({});
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Initialize quantities when purchase list changes
+    const initialQuantities = purchaseList.reduce((acc, item) => {
+      acc[item.ingredientId] = item.quantityToBuy;
+      return acc;
+    }, {} as Record<string, number | string>);
+    setPurchasedQuantities(initialQuantities);
+  }, [purchaseList]);
+
+  const handleQuantityChange = (ingredientId: string, value: string) => {
+    setPurchasedQuantities(prev => ({
+      ...prev,
+      [ingredientId]: value,
+    }));
+  };
+
+  const handleAddStock = (ingredientId: string, name: string) => {
+    const quantity = purchasedQuantities[ingredientId];
+    const parsedQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
+
+    if (!parsedQuantity || parsedQuantity <= 0) {
+      toast({
+        title: 'Cantidad Inválida',
+        description: 'Por favor, introduce una cantidad mayor que cero.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    addStock(ingredientId, parsedQuantity);
+  }
 
   return (
     <>
@@ -55,23 +92,37 @@ export function PurchaseListClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ingrediente</TableHead>
-                  <TableHead>Cantidad a Comprar</TableHead>
+                  <TableHead className="w-[250px]">Cantidad Comprada</TableHead>
                   <TableHead>Razón</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
+                  <TableHead className="w-[180px] text-right">Acción</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {purchaseList.map(item => (
                   <TableRow key={item.ingredientId}>
                     <TableCell className="font-medium">{item.ingredientName}</TableCell>
-                    <TableCell>{item.quantityToBuy} {item.unit}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                         <Input 
+                          type="number"
+                          value={purchasedQuantities[item.ingredientId] || ''}
+                          onChange={(e) => handleQuantityChange(item.ingredientId, e.target.value)}
+                          className="w-24 h-9"
+                          placeholder="0"
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          (Sugerido: {item.quantityToBuy} {item.unit})
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{item.reason}</TableCell>
                     <TableCell className="text-right">
                        <Button 
                         size="sm" 
-                        onClick={() => addStock(item.ingredientId, item.quantityToBuy)}
+                        onClick={() => handleAddStock(item.ingredientId, item.ingredientName)}
                         >
-                          Marcar como Comprado
+                          <PackagePlus className="mr-2 h-4 w-4" />
+                          Agregar al Stock
                         </Button>
                     </TableCell>
                   </TableRow>
