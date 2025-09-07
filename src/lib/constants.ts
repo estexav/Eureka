@@ -1,6 +1,7 @@
 import type { Ingredient, Recipe, Sale } from './types';
 
-export const LOCAL_STORAGE_KEY = 'panaderia-inteligente-data';
+// Data is now fetched from Firestore, these initial constants are no longer primary.
+// They can be used for first-time seeding if necessary, but the app relies on the database.
 
 export const INITIAL_INGREDIENTS: Ingredient[] = [
   { id: '1', name: 'Harina', stock: 5000, unit: 'g', reorderPoint: 1000 },

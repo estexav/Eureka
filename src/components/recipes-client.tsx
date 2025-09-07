@@ -16,6 +16,16 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { Recipe } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const recipeSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -29,6 +39,8 @@ export function RecipesClient() {
   const { recipes, ingredients, addRecipe, updateRecipe, deleteRecipe, getIngredientName, isInitialized } = useData();
   const [open, setOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
 
   const form = useForm<z.infer<typeof recipeSchema>>({
     resolver: zodResolver(recipeSchema),
@@ -59,6 +71,13 @@ export function RecipesClient() {
     setOpen(false);
   };
   
+  const handleDelete = async () => {
+    if (deletingId) {
+      await deleteRecipe(deletingId);
+      setDeletingId(null);
+    }
+  };
+
   if (!isInitialized) {
      return (
       <>
@@ -79,6 +98,21 @@ export function RecipesClient() {
 
   return (
     <>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingId(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Continuar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <PageHeader title="Recetas" description="Crea y gestiona tus recetas.">
           <Button onClick={() => handleOpenDialog()}>
@@ -194,7 +228,7 @@ export function RecipesClient() {
                         <DropdownMenuItem onClick={() => handleOpenDialog(recipe)}>
                           <Pencil className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => deleteRecipe(recipe.id)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem onClick={() => setDeletingId(recipe.id)} className="text-destructive focus:text-destructive">
                           <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>

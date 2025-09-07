@@ -44,6 +44,7 @@ export function DataManagementClient() {
         // Basic validation
         if ('ingredients' in parsedData && 'recipes' in parsedData && 'sales' in parsedData) {
             importData(parsedData);
+            toast({ title: 'Éxito', description: 'Los datos se están importando en segundo plano.' });
         } else {
             throw new Error('Invalid file format');
         }
@@ -85,7 +86,7 @@ export function DataManagementClient() {
           <CardHeader>
             <CardTitle>Importar Datos</CardTitle>
             <CardDescription>
-              Carga un archivo de backup JSON para restaurar tus datos. ¡Cuidado! Esto sobreescribirá todos los datos actuales.
+              Carga un archivo de backup JSON para restaurar tus datos. Esto añadirá los datos del archivo a tu base de datos de Firestore.
             </CardDescription>
           </CardHeader>
           <CardContent>

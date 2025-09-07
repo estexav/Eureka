@@ -2,8 +2,22 @@
 
 import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { Ingredient, Recipe, Sale, AppData, RecipeIngredient } from '@/lib/types';
-import { INITIAL_INGREDIENTS, INITIAL_RECIPES, INITIAL_SALES, LOCAL_STORAGE_KEY } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc,
+  writeBatch,
+  query,
+  orderBy,
+  runTransaction,
+  where,
+  getDocs
+} from 'firebase/firestore';
 
 interface DataContextProps {
   ingredients: Ingredient[];
@@ -11,10 +25,10 @@ interface DataContextProps {
   sales: Sale[];
   addIngredient: (ingredient: Omit<Ingredient, 'id'>) => void;
   updateIngredient: (ingredient: Ingredient) => void;
-  deleteIngredient: (id: string) => void;
+  deleteIngredient: (id: string) => Promise<void>;
   addRecipe: (recipe: Omit<Recipe, 'id'>) => void;
   updateRecipe: (recipe: Recipe) => void;
-  deleteRecipe: (id: string) => void;
+  deleteRecipe: (id: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id' | 'date'>) => void;
   getIngredientName: (id: string) => string;
   getRecipeName: (id: string) => string;
@@ -30,63 +44,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const { toast } = useToast();
+  
+  // Collections refs
+  const ingredientsCol = collection(db, 'ingredients');
+  const recipesCol = collection(db, 'recipes');
+  const salesCol = collection(db, 'sales');
 
   useEffect(() => {
+    const unsubscribes = [
+      onSnapshot(query(ingredientsCol, orderBy('name')), snapshot => {
+        setIngredients(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)));
+        setIsInitialized(true);
+      }),
+      onSnapshot(query(recipesCol, orderBy('name')), snapshot => {
+        setRecipes(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe)));
+      }),
+      onSnapshot(query(salesCol, orderBy('date', 'desc')), snapshot => {
+        setSales(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sale)));
+      }),
+    ];
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, []);
+
+
+  const addIngredient = async (ingredient: Omit<Ingredient, 'id'>) => {
     try {
-      const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedData) {
-        const parsedData: AppData = JSON.parse(savedData);
-        setIngredients(parsedData.ingredients || []);
-        setRecipes(parsedData.recipes || []);
-        setSales(parsedData.sales || []);
-      } else {
-        // First time load, set initial data
-        setIngredients(INITIAL_INGREDIENTS);
-        setRecipes(INITIAL_RECIPES);
-        setSales(INITIAL_SALES);
-      }
+      await addDoc(ingredientsCol, ingredient);
+      toast({ title: 'Éxito', description: 'Ingrediente agregado.' });
     } catch (error) {
-      console.error('Failed to load data from localStorage', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los datos. Se usará la configuración inicial.',
-        variant: 'destructive',
-      });
-      setIngredients(INITIAL_INGREDIENTS);
-      setRecipes(INITIAL_RECIPES);
-      setSales(INITIAL_SALES);
+      console.error("Error adding ingredient: ", error);
+      toast({ title: 'Error', description: 'No se pudo agregar el ingrediente.', variant: 'destructive' });
     }
-    setIsInitialized(true);
-  }, [toast]);
-
-  useEffect(() => {
-    if (isInitialized) {
-      try {
-        const dataToSave: AppData = { ingredients, recipes, sales };
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
-      } catch (error) {
-        console.error('Failed to save data to localStorage', error);
-         toast({
-          title: 'Error',
-          description: 'No se pudieron guardar los datos en el navegador.',
-          variant: 'destructive',
-        });
-      }
-    }
-  }, [ingredients, recipes, sales, isInitialized, toast]);
-
-  const addIngredient = (ingredient: Omit<Ingredient, 'id'>) => {
-    setIngredients(prev => [...prev, { ...ingredient, id: Date.now().toString() }]);
   };
 
-  const updateIngredient = (updatedIngredient: Ingredient) => {
-    setIngredients(prev => prev.map(ing => ing.id === updatedIngredient.id ? updatedIngredient : ing));
+  const updateIngredient = async (updatedIngredient: Ingredient) => {
+    try {
+      const { id, ...data } = updatedIngredient;
+      await updateDoc(doc(db, 'ingredients', id), data);
+      toast({ title: 'Éxito', description: 'Ingrediente actualizado.' });
+    } catch (error) {
+       console.error("Error updating ingredient: ", error);
+       toast({ title: 'Error', description: 'No se pudo actualizar el ingrediente.', variant: 'destructive' });
+    }
   };
 
-  const deleteIngredient = (id: string) => {
-    // Check if ingredient is used in any recipe
-    const isUsed = recipes.some(recipe => recipe.ingredients.some(ing => ing.ingredientId === id));
-    if (isUsed) {
+  const deleteIngredient = async (id: string) => {
+    const isUsedQuery = query(recipesCol, where('ingredients', 'array-contains', { ingredientId: id }));
+    const querySnapshot = await getDocs(isUsedQuery);
+
+    const isUsedInRecipes = recipes.some(recipe => 
+      recipe.ingredients.some(ing => ing.ingredientId === id)
+    );
+
+    if (isUsedInRecipes) {
       toast({
         title: 'Error',
         description: 'No se puede eliminar un ingrediente que se está usando en una receta.',
@@ -94,65 +104,112 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-    setIngredients(prev => prev.filter(ing => ing.id !== id));
-  };
-
-  const addRecipe = (recipe: Omit<Recipe, 'id'>) => {
-    setRecipes(prev => [...prev, { ...recipe, id: Date.now().toString() }]);
-  };
-
-  const updateRecipe = (updatedRecipe: Recipe) => {
-    setRecipes(prev => prev.map(rec => rec.id === updatedRecipe.id ? updatedRecipe : rec));
-  };
-
-  const deleteRecipe = (id: string) => {
-    // Check if recipe is used in any sale
-    const isUsed = sales.some(sale => sale.recipeId === id);
-    if(isUsed) {
-      toast({
-        title: 'Error',
-        description: 'No se puede eliminar una receta con ventas registradas.',
-        variant: 'destructive'
-      });
-      return;
+    
+    try {
+      await deleteDoc(doc(db, 'ingredients', id));
+      toast({ title: 'Éxito', description: 'Ingrediente eliminado.' });
+    } catch (error) {
+      console.error("Error deleting ingredient: ", error);
+      toast({ title: 'Error', description: 'No se pudo eliminar el ingrediente.', variant: 'destructive' });
     }
-    setRecipes(prev => prev.filter(rec => rec.id !== id));
   };
 
-  const addSale = (sale: Omit<Sale, 'id' | 'date'>) => {
+  const addRecipe = async (recipe: Omit<Recipe, 'id'>) => {
+     try {
+      await addDoc(recipesCol, recipe);
+      toast({ title: 'Éxito', description: 'Receta agregada.' });
+    } catch (error) {
+      console.error("Error adding recipe: ", error);
+      toast({ title: 'Error', description: 'No se pudo agregar la receta.', variant: 'destructive' });
+    }
+  };
+
+  const updateRecipe = async (updatedRecipe: Recipe) => {
+    try {
+      const { id, ...data } = updatedRecipe;
+      await updateDoc(doc(db, 'recipes', id), data);
+      toast({ title: 'Éxito', description: 'Receta actualizada.' });
+    } catch (error) {
+      console.error("Error updating recipe: ", error);
+      toast({ title: 'Error', description: 'No se pudo actualizar la receta.', variant: 'destructive' });
+    }
+  };
+
+  const deleteRecipe = async (id: string) => {
+     const salesWithRecipeQuery = query(salesCol, where('recipeId', '==', id));
+     const querySnapshot = await getDocs(salesWithRecipeQuery);
+     if (!querySnapshot.empty) {
+        toast({
+            title: 'Error',
+            description: 'No se puede eliminar una receta con ventas registradas.',
+            variant: 'destructive'
+        });
+        return;
+     }
+
+    try {
+      await deleteDoc(doc(db, 'recipes', id));
+      toast({ title: 'Éxito', description: 'Receta eliminada.' });
+    } catch(error) {
+       console.error("Error deleting recipe: ", error);
+       toast({ title: 'Error', description: 'No se pudo eliminar la receta.', variant: 'destructive' });
+    }
+  };
+
+  const addSale = async (sale: Omit<Sale, 'id' | 'date'>) => {
     const recipe = recipes.find(r => r.id === sale.recipeId);
     if (!recipe) {
-      toast({ title: 'Error', description: 'Receta no encontrada.', variant: 'destructive'});
+      toast({ title: 'Error', description: 'Receta no encontrada.', variant: 'destructive' });
       return;
     }
-
-    const updatedIngredients = [...ingredients];
-    let canFulfill = true;
-
-    recipe.ingredients.forEach((recipeIngredient: RecipeIngredient) => {
-      const stockIngredient = updatedIngredients.find(i => i.id === recipeIngredient.ingredientId);
-      if (!stockIngredient || stockIngredient.stock < recipeIngredient.quantity * sale.quantity) {
-        canFulfill = false;
-        toast({
-          title: 'Stock insuficiente',
-          description: `No hay suficiente ${stockIngredient?.name || 'ingrediente'} para completar la venta.`,
-          variant: 'destructive',
-        });
-      }
-    });
-
-    if (canFulfill) {
-      recipe.ingredients.forEach((recipeIngredient: RecipeIngredient) => {
-        const stockIngredientIndex = updatedIngredients.findIndex(i => i.id === recipeIngredient.ingredientId);
-        if (stockIngredientIndex > -1) {
-          updatedIngredients[stockIngredientIndex].stock -= recipeIngredient.quantity * sale.quantity;
+  
+    try {
+      await runTransaction(db, async (transaction) => {
+        const ingredientUpdates: {docRef: any, newStock: number}[] = [];
+        
+        for (const recipeIngredient of recipe.ingredients) {
+          const ingredientDocRef = doc(db, 'ingredients', recipeIngredient.ingredientId);
+          const ingredientDoc = await transaction.get(ingredientDocRef);
+          
+          if (!ingredientDoc.exists()) {
+            throw new Error(`Ingrediente con ID ${recipeIngredient.ingredientId} no encontrado.`);
+          }
+          
+          const currentStock = ingredientDoc.data().stock;
+          const requiredStock = recipeIngredient.quantity * sale.quantity;
+          
+          if (currentStock < requiredStock) {
+            throw new Error(`Stock insuficiente para ${ingredientDoc.data().name}.`);
+          }
+          
+          ingredientUpdates.push({
+            docRef: ingredientDocRef,
+            newStock: currentStock - requiredStock
+          });
         }
+  
+        // All checks passed, perform writes
+        ingredientUpdates.forEach(update => {
+          transaction.update(update.docRef, { stock: update.newStock });
+        });
+  
+        const saleWithDate = {
+          ...sale,
+          date: new Date().toISOString(),
+        };
+        transaction.set(doc(salesCol), saleWithDate);
       });
-      setIngredients(updatedIngredients);
-      setSales(prev => [...prev, { ...sale, id: Date.now().toString(), date: new Date().toISOString() }]);
+  
       toast({
         title: 'Venta registrada',
         description: `Se vendieron ${sale.quantity} de ${recipe.name}. Stock actualizado.`,
+      });
+    } catch (e: any) {
+      console.error('Error en la transacción de venta: ', e);
+      toast({
+        title: 'Error en la Venta',
+        description: e.message || 'No se pudo completar la transacción.',
+        variant: 'destructive',
       });
     }
   };
@@ -160,11 +217,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getIngredientName = useCallback((id: string) => ingredients.find(i => i.id === id)?.name || 'Desconocido', [ingredients]);
   const getRecipeName = useCallback((id: string) => recipes.find(r => r.id === id)?.name || 'Desconocido', [recipes]);
 
-  const importData = (data: AppData) => {
-    setIngredients(data.ingredients || []);
-    setRecipes(data.recipes || []);
-    setSales(data.sales || []);
-    toast({ title: 'Éxito', description: 'Datos importados correctamente.' });
+  const importData = async (data: AppData) => {
+    const batch = writeBatch(db);
+    
+    // Clear existing data (optional, use with caution)
+    // For simplicity, we're just adding new data. A more robust solution might handle duplicates.
+    
+    data.ingredients.forEach(item => {
+        const docRef = doc(ingredientsCol, item.id || undefined);
+        batch.set(docRef, item);
+    });
+     data.recipes.forEach(item => {
+        const docRef = doc(recipesCol, item.id || undefined);
+        batch.set(docRef, item);
+    });
+     data.sales.forEach(item => {
+        const docRef = doc(salesCol, item.id || undefined);
+        batch.set(docRef, item);
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: 'Éxito', description: 'Datos importados correctamente.' });
+    } catch (error) {
+        console.error("Error importing data: ", error);
+        toast({ title: 'Error', description: 'No se pudieron importar los datos.', variant: 'destructive' });
+    }
   };
 
 

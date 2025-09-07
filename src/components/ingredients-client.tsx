@@ -13,6 +13,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -40,6 +51,7 @@ export function IngredientsClient() {
   const { ingredients, addIngredient, updateIngredient, deleteIngredient, isInitialized } = useData();
   const [open, setOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof ingredientSchema>>({
@@ -79,10 +91,17 @@ export function IngredientsClient() {
         title: 'Stock Actualizado',
         description: `Se agregaron ${values.quantity} ${ingredient.unit} de ${ingredient.name}.`,
       });
-      restockForm.reset();
+      restockForm.reset({ ingredientId: '', quantity: 1 });
     }
   };
   
+  const handleDelete = async () => {
+    if (deletingId) {
+      await deleteIngredient(deletingId);
+      setDeletingId(null);
+    }
+  };
+
   if (!isInitialized) {
     return (
       <>
@@ -105,6 +124,21 @@ export function IngredientsClient() {
 
   return (
     <>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Esto eliminará permanentemente el ingrediente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingId(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Continuar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <PageHeader title="Ingredientes" description="Gestiona el stock de tus ingredientes.">
           <Button onClick={() => handleOpenDialog()}>
@@ -215,7 +249,7 @@ export function IngredientsClient() {
                                 <DropdownMenuItem onClick={() => handleOpenDialog(ingredient)}>
                                 <Pencil className="mr-2 h-4 w-4" /> Editar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteIngredient(ingredient.id)} className="text-destructive focus:text-destructive">
+                                <DropdownMenuItem onClick={() => setDeletingId(ingredient.id)} className="text-destructive focus:text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -243,7 +277,7 @@ export function IngredientsClient() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Ingrediente</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Selecciona..." />
