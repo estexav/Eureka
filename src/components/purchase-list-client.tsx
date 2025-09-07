@@ -18,7 +18,7 @@ export function PurchaseListClient() {
   useEffect(() => {
     // Initialize quantities when purchase list changes
     const initialQuantities = purchaseList.reduce((acc, item) => {
-      acc[item.ingredientId] = item.quantityToBuy;
+      acc[item.ingredientId] = '';
       return acc;
     }, {} as Record<string, number | string>);
     setPurchasedQuantities(initialQuantities);
@@ -111,7 +111,7 @@ export function PurchaseListClient() {
                           placeholder="0"
                         />
                         <span className="text-sm text-muted-foreground">
-                          (Sugerido: {item.quantityToBuy} {item.unit})
+                        (Sugerido: {item.quantityToBuy} {item.unit})
                         </span>
                       </div>
                     </TableCell>
