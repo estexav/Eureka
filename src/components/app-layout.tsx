@@ -43,9 +43,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarHeader>
           <div className="flex items-center gap-2">
              <Button variant="ghost" size="icon" className="shrink-0" asChild>
-                <Link href="/dashboard"><Cookie className="size-5 text-primary" /></Link>
+                <Link href="/dashboard"><Cookie className="size-5 text-sidebar-primary" /></Link>
              </Button>
-            <h2 className="text-lg font-semibold font-headline text-primary-foreground group-data-[collapsible=icon]:hidden">
+            <h2 className="text-lg font-semibold font-headline text-sidebar-primary-foreground group-data-[collapsible=icon]:hidden">
               Panadería Inteligente
             </h2>
           </div>
