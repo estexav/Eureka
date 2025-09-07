@@ -22,6 +22,7 @@ import {
   BrainCircuit,
   Database,
   Cookie,
+  ShoppingCart,
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -31,6 +32,7 @@ const menuItems = [
   { href: '/recipes', label: 'Recetas', icon: BookOpenText },
   { href: '/sales', label: 'Ventas', icon: ClipboardList },
   { href: '/stock-prediction', label: 'Predicción de Stock', icon: BrainCircuit },
+  { href: '/purchase-list', label: 'Lista de Compras', icon: ShoppingCart },
   { href: '/data-management', label: 'Datos', icon: Database },
 ];
 

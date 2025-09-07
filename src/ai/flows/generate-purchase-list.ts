@@ -17,18 +17,16 @@ const GeneratePurchaseListInputSchema = z.object({
       z.object({
         name: z.string().describe('The name of the ingredient.'),
         stock: z.number().describe('The current stock quantity of the ingredient.'),
-        depletionRate: z
-          .number()
-          .describe('The predicted daily depletion rate of the ingredient.'),
+        unit: z.string().describe('The measurement unit for the ingredient (e.g., g, ml, units).'),
         reorderPoint: z
           .number()
           .describe('The stock level at which a reorder should be triggered.'),
       })
     )
-    .describe('A list of ingredients with their stock levels, depletion rates, and reorder points.'),
+    .describe('A list of ingredients with their stock levels, units, and reorder points.'),
   salesData: z
     .string()
-    .describe('Historical sales data to use for calculating depletion rates.'),
+    .describe('A JSON string of recent sales data (recipe name and quantity sold) to help estimate consumption.'),
 });
 export type GeneratePurchaseListInput = z.infer<typeof GeneratePurchaseListInputSchema>;
 
@@ -37,11 +35,11 @@ const GeneratePurchaseListOutputSchema = z.object({
     .array(
       z.object({
         ingredientName: z.string().describe('The name of the ingredient to purchase.'),
-        quantity: z.number().describe('The quantity of the ingredient to purchase.'),
-        reason: z.string().describe('The reason for including the ingredient in the list'),
+        quantityToBuy: z.number().describe('The suggested quantity of the ingredient to purchase.'),
+        reason: z.string().describe('A brief reason for why this ingredient and quantity are being suggested.'),
       })
     )
-    .describe('A list of ingredients to purchase with quantities.'),
+    .describe('A list of ingredients to purchase with quantities and reasons.'),
 });
 export type GeneratePurchaseListOutput = z.infer<typeof GeneratePurchaseListOutputSchema>;
 
@@ -55,33 +53,32 @@ const prompt = ai.definePrompt({
   name: 'generatePurchaseListPrompt',
   input: {schema: GeneratePurchaseListInputSchema},
   output: {schema: GeneratePurchaseListOutputSchema},
-  prompt: `You are a purchasing assistant for a bakery. Based on the current stock levels, predicted depletion rates, and reorder points of the following ingredients, generate a purchase list of ingredients to order.
+  prompt: `You are an expert purchasing assistant for a bakery. Your task is to generate a smart purchase list.
 
-Historical Sales Data: {{{salesData}}}
+Analyze the provided data:
+1.  Current ingredient stock levels.
+2.  The reorder point for each ingredient.
+3.  Recent sales data to understand consumption trends.
 
-Ingredients:
+Your goal is to create a purchase list that ensures the bakery never runs out of key ingredients.
+
+Follow these rules:
+- Only include an ingredient in the purchase list if its current stock is AT or BELOW its reorder point.
+- The 'quantityToBuy' should be a sensible amount that brings the stock comfortably above the reorder point. A good rule of thumb is to buy enough for at least 7-14 days of average consumption, but don't overstock perishable items.
+- The 'reason' should be concise, mentioning that the stock is low and justifying the suggested amount (e.g., "Stock bajo el punto de pedido. Compra para cubrir 1 semana de ventas.").
+- If no ingredients need to be reordered, return an empty purchase list.
+- Base your consumption estimates on the provided sales data.
+
+Current Ingredients Data:
 {{#each ingredients}}
-- Name: {{this.name}}, Stock: {{this.stock}}, Depletion Rate: {{this.depletionRate}}, Reorder Point: {{this.reorderPoint}}
+- {{this.name}}: Stock: {{this.stock}} {{this.unit}}, Punto de Pedido: {{this.reorderPoint}} {{this.unit}}
 {{/each}}
 
-Consider the following when determining the quantity to order:
-- Order enough to bring the stock level up to a reasonable level above the reorder point.
-- Account for any upcoming events or promotions that may increase demand.
-- Do not recommend purchasing items that are already above their reorder point, unless there is a specific reason.
+Recent Sales Data (JSON):
+{{{salesData}}}
 
-Output the purchase list as a JSON object with an array of ingredients to purchase. For each ingredient, include the ingredient name, the quantity to purchase, and a brief reason for including it in the list.
-`,  config: {
-    safetySettings: [
-      {
-        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_ONLY_HIGH',
-      },
-      {
-        category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_ONLY_HIGH',
-      },
-    ],
-  },
+Generate the purchase list now.
+`,
 });
 
 const generatePurchaseListFlow = ai.defineFlow(

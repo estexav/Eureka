@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/app-layout';
 import { DataProvider } from '@/contexts/data-provider';
+import { PurchaseListProvider } from '@/contexts/purchase-list-provider';
 
 export default function AppPagesLayout({
   children,
@@ -8,7 +9,9 @@ export default function AppPagesLayout({
 }) {
   return (
     <DataProvider>
-      <AppLayout>{children}</AppLayout>
+      <PurchaseListProvider>
+        <AppLayout>{children}</AppLayout>
+      </PurchaseListProvider>
     </DataProvider>
   );
 }
