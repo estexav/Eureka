@@ -11,15 +11,15 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 export function PurchaseListClient() {
-  const { purchaseList, loading, error, addStock, generatedAt } = usePurchaseList();
-  const [purchasedQuantities, setPurchasedQuantities] = useState<Record<string, number | string>>({});
+  const { purchaseList, loading, addStock, generatedAt } = usePurchaseList();
+  const [purchasedQuantities, setPurchasedQuantities] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     const initialQuantities = purchaseList.reduce((acc, item) => {
       acc[item.ingredientId] = '';
       return acc;
-    }, {} as Record<string, number | string>);
+    }, {} as Record<string, string>);
     setPurchasedQuantities(initialQuantities);
   }, [purchaseList]);
 
@@ -44,26 +44,25 @@ export function PurchaseListClient() {
     }
     
     addStock(ingredientId, parsedQuantity);
+    
+    // Clear the input after adding stock
+    setPurchasedQuantities(prev => ({
+      ...prev,
+      [ingredientId]: '',
+    }));
   }
 
   return (
     <>
       <PageHeader
-        title="Lista de Compras Inteligente"
-        description="Esta lista se actualiza automáticamente según tu stock, puntos de pedido y ventas."
+        title="Lista de Compras"
+        description="Ingredientes que están por debajo de su punto de pedido."
       />
-
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
-                <CardTitle>Lista de Compras Sugerida</CardTitle>
+                <CardTitle>Ingredientes a Comprar</CardTitle>
                 <CardDescription>
                 Última actualización: {generatedAt ? new Date(generatedAt).toLocaleString('es-ES') : 'Calculando...'}
                 </CardDescription>
@@ -116,7 +115,7 @@ export function PurchaseListClient() {
             </Table>
           ) : (
              <div className="text-center py-10 text-muted-foreground">
-                {loading ? 'Analizando tu inventario...' : '¡Todo en orden! No se necesitan compras por ahora.'}
+                {loading ? 'Analizando tu inventario...' : '¡Todo en orden! No hay ingredientes por debajo del punto de pedido.'}
             </div>
           )}
         </CardContent>
