@@ -81,7 +81,7 @@ export function StockPredictionClient() {
   return (
     <>
       <PageHeader
-        title="Predicción de Stock con IA"
+        title="Predicción de Stock con IA (Beta)"
         description="Usa IA para analizar tus datos y obtener predicciones inteligentes."
       />
       <Card className="mb-6">
