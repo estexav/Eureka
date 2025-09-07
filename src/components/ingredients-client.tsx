@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useData } from '@/hooks/use-data';
 import { PageHeader } from './page-header';
 import { Button } from './ui/button';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, PackagePlus } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import {
@@ -21,6 +21,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from './ui/input';
 import type { Ingredient } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 const ingredientSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -29,14 +31,25 @@ const ingredientSchema = z.object({
   reorderPoint: z.coerce.number().min(0, 'El punto de pedido no puede ser negativo'),
 });
 
+const restockSchema = z.object({
+  ingredientId: z.string().min(1, 'Selecciona un ingrediente'),
+  quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
+});
+
 export function IngredientsClient() {
   const { ingredients, addIngredient, updateIngredient, deleteIngredient, isInitialized } = useData();
   const [open, setOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof ingredientSchema>>({
     resolver: zodResolver(ingredientSchema),
     defaultValues: { name: '', stock: 0, unit: '', reorderPoint: 0 },
+  });
+
+  const restockForm = useForm<z.infer<typeof restockSchema>>({
+    resolver: zodResolver(restockSchema),
+    defaultValues: { ingredientId: '', quantity: 1 },
   });
 
   const handleOpenDialog = (ingredient: Ingredient | null = null) => {
@@ -56,6 +69,18 @@ export function IngredientsClient() {
       addIngredient(values);
     }
     setOpen(false);
+  };
+
+  const onRestockSubmit = (values: z.infer<typeof restockSchema>) => {
+    const ingredient = ingredients.find(i => i.id === values.ingredientId);
+    if (ingredient) {
+      updateIngredient({ ...ingredient, stock: ingredient.stock + values.quantity });
+      toast({
+        title: 'Stock Actualizado',
+        description: `Se agregaron ${values.quantity} ${ingredient.unit} de ${ingredient.name}.`,
+      });
+      restockForm.reset();
+    }
   };
   
   if (!isInitialized) {
@@ -150,55 +175,113 @@ export function IngredientsClient() {
           </Form>
         </DialogContent>
       </Dialog>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ingredients.map(ingredient => (
-                <TableRow key={ingredient.id}>
-                  <TableCell className="font-medium">{ingredient.name}</TableCell>
-                  <TableCell>
-                    {ingredient.stock} {ingredient.unit}
-                  </TableCell>
-                  <TableCell>
-                    {ingredient.stock <= ingredient.reorderPoint ? (
-                      <Badge variant="destructive">Bajo</Badge>
-                    ) : (
-                      <Badge variant="secondary">OK</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenDialog(ingredient)}>
-                          <Pencil className="mr-2 h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => deleteIngredient(ingredient.id)} className="text-destructive focus:text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+            <Card>
+                <CardContent className="p-0">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {ingredients.map(ingredient => (
+                        <TableRow key={ingredient.id}>
+                        <TableCell className="font-medium">{ingredient.name}</TableCell>
+                        <TableCell>
+                            {ingredient.stock} {ingredient.unit}
+                        </TableCell>
+                        <TableCell>
+                            {ingredient.stock <= ingredient.reorderPoint ? (
+                            <Badge variant="destructive">Bajo</Badge>
+                            ) : (
+                            <Badge variant="secondary">OK</Badge>
+                            )}
+                        </TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Abrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDialog(ingredient)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteIngredient(ingredient.id)} className="text-destructive focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+        </div>
+        <div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Reabastecer Stock</CardTitle>
+                    <CardDescription>Agrega stock a un ingrediente existente.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Form {...restockForm}>
+                        <form onSubmit={restockForm.handleSubmit(onRestockSubmit)} className="space-y-4">
+                        <FormField
+                            control={restockForm.control}
+                            name="ingredientId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Ingrediente</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona..." />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {ingredients.map(ing => (
+                                        <SelectItem key={ing.id} value={ing.id}>{ing.name}</SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                             <FormField
+                                control={restockForm.control}
+                                name="quantity"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cantidad a Agregar</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" placeholder="0" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <Button type="submit" className="w-full">
+                                <PackagePlus className="mr-2 h-4 w-4" />
+                                Agregar al Stock
+                            </Button>
+                        </form>
+                    </Form>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
     </>
   );
 }
