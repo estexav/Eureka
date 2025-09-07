@@ -43,25 +43,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [sales, setSales] = useState<Sale[]>([]);
   const { toast } = useToast();
   
-  // Collections refs
   const ingredientsCol = collection(db, 'ingredients');
   const recipesCol = collection(db, 'recipes');
   const salesCol = collection(db, 'sales');
 
   useEffect(() => {
+    let ingredientCount = 0;
+    let recipeCount = 0;
+    let salesCount = 0;
+    let initTimeout: NodeJS.Timeout;
+
+    const checkInitialized = () => {
+        // This function ensures that we consider the app "initialized"
+        // only after the initial data from all collections has been loaded.
+        if (ingredientCount > 0 && recipeCount > 0 && salesCount >= 0) {
+            setIsInitialized(true);
+            clearTimeout(initTimeout);
+        }
+    };
+    
+    // Set a timeout to prevent getting stuck in a loading state
+    // if a collection is empty and never fires.
+    initTimeout = setTimeout(() => {
+      if (!isInitialized) {
+        setIsInitialized(true);
+      }
+    }, 5000);
+
+
     const unsubscribes = [
       onSnapshot(query(ingredientsCol, orderBy('name')), snapshot => {
         setIngredients(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Ingredient)));
-        setIsInitialized(true);
+        ingredientCount = snapshot.size;
+        checkInitialized();
       }),
       onSnapshot(query(recipesCol, orderBy('name')), snapshot => {
         setRecipes(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Recipe)));
+        recipeCount = snapshot.size;
+        checkInitialized();
       }),
       onSnapshot(query(salesCol, orderBy('date', 'desc')), snapshot => {
         setSales(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sale)));
+        salesCount = snapshot.size;
+        checkInitialized();
       }),
     ];
-    return () => unsubscribes.forEach(unsub => unsub());
+
+    return () => {
+        unsubscribes.forEach(unsub => unsub());
+        clearTimeout(initTimeout);
+    }
   }, []);
 
 
@@ -79,7 +110,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const { id, ...data } = updatedIngredient;
       await updateDoc(doc(db, 'ingredients', id), data);
-      toast({ title: 'Éxito', description: 'Ingrediente actualizado.' });
+      // toast({ title: 'Éxito', description: 'Ingrediente actualizado.' });
     } catch (error) {
        console.error("Error updating ingredient: ", error);
        toast({ title: 'Error', description: 'No se pudo actualizar el ingrediente.', variant: 'destructive' });
@@ -183,7 +214,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           });
         }
   
-        // All checks passed, perform writes
         ingredientUpdates.forEach(update => {
           transaction.update(update.docRef, { stock: update.newStock });
         });

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { generatePurchaseList, GeneratePurchaseListOutput } from '@/ai/flows/generate-purchase-list';
 import { useData } from '@/hooks/use-data';
 import { useToast } from '@/hooks/use-toast';
@@ -15,22 +15,26 @@ interface PurchaseListContextProps {
   loading: boolean;
   error: string | null;
   generatedAt: string | null;
-  generateList: () => Promise<void>;
   addStock: (ingredientId: string, quantity: number) => void;
 }
 
 export const PurchaseListContext = createContext<PurchaseListContextProps | undefined>(undefined);
 
 export function PurchaseListProvider({ children }: { children: ReactNode }) {
-  const { ingredients, sales, recipes, updateIngredient } = useData();
+  const { ingredients, sales, recipes, updateIngredient, isInitialized } = useData();
   const { toast } = useToast();
   
   const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const generateList = useCallback(async () => {
+    if (!isInitialized || ingredients.length === 0) {
+      // Don't run if data isn't ready
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -38,7 +42,6 @@ export function PurchaseListProvider({ children }: { children: ReactNode }) {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentSales = sales.filter(s => new Date(s.date) > thirtyDaysAgo);
     
-    // Create a simplified sales data string for the prompt
     const salesSummary = recentSales.reduce((acc, sale) => {
         const recipeName = recipes.find(r => r.id === sale.recipeId)?.name || 'Desconocido';
         acc[recipeName] = (acc[recipeName] || 0) + sale.quantity;
@@ -64,25 +67,29 @@ export function PurchaseListProvider({ children }: { children: ReactNode }) {
           ingredientId: ingredient?.id || '',
           unit: ingredient?.unit || ''
         }
-      }).filter(item => !!item.ingredientId); // Filter out items where ingredient wasn't found
+      }).filter(item => !!item.ingredientId); 
 
       setPurchaseList(listWithIds);
       setGeneratedAt(new Date().toISOString());
 
     } catch (e) {
       console.error(e);
-      setError('Ocurrió un error al generar la lista de compras. Inténtalo de nuevo.');
-      toast({ title: 'Error', description: 'No se pudo generar la lista.', variant: 'destructive' });
+      setError('Ocurrió un error al generar la lista de compras. La IA puede estar ocupada, se reintentará en breve.');
     } finally {
       setLoading(false);
     }
-  }, [ingredients, sales, recipes, toast]);
+  }, [isInitialized, ingredients, sales, recipes]);
+
+  useEffect(() => {
+    generateList();
+  }, [generateList]);
 
   const addStock = useCallback((ingredientId: string, quantity: number) => {
     const ingredient = ingredients.find(i => i.id === ingredientId);
     if (ingredient) {
       updateIngredient({ ...ingredient, stock: ingredient.stock + quantity });
-      // Remove from purchase list after adding stock
+      // The list will regenerate automatically via useEffect,
+      // but we can remove it from the client state for a faster UI update.
       setPurchaseList(prev => prev.filter(item => item.ingredientId !== ingredientId));
       toast({
         title: 'Stock Actualizado',
@@ -97,7 +104,6 @@ export function PurchaseListProvider({ children }: { children: ReactNode }) {
       loading, 
       error,
       generatedAt,
-      generateList, 
       addStock 
     }}>
       {children}

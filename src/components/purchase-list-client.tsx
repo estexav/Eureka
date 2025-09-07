@@ -3,20 +3,19 @@ import { usePurchaseList } from '@/hooks/use-purchase-list';
 import { PageHeader } from './page-header';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Loader2, PackagePlus, ShoppingCart } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Loader2, PackagePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Input } from './ui/input';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 export function PurchaseListClient() {
-  const { purchaseList, loading, error, generateList, addStock, generatedAt } = usePurchaseList();
+  const { purchaseList, loading, error, addStock, generatedAt } = usePurchaseList();
   const [purchasedQuantities, setPurchasedQuantities] = useState<Record<string, number | string>>({});
   const { toast } = useToast();
 
   useEffect(() => {
-    // Initialize quantities when purchase list changes
     const initialQuantities = purchaseList.reduce((acc, item) => {
       acc[item.ingredientId] = '';
       return acc;
@@ -31,7 +30,7 @@ export function PurchaseListClient() {
     }));
   };
 
-  const handleAddStock = (ingredientId: string, name: string) => {
+  const handleAddStock = (ingredientId: string) => {
     const quantity = purchasedQuantities[ingredientId];
     const parsedQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
 
@@ -51,44 +50,29 @@ export function PurchaseListClient() {
     <>
       <PageHeader
         title="Lista de Compras Inteligente"
-        description="Genera una lista de compras para los ingredientes que están por agotarse."
+        description="Esta lista se actualiza automáticamente según tu stock, puntos de pedido y ventas."
       />
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Generar Lista de Compras</CardTitle>
-          <CardDescription>
-            La IA analizará tu stock, puntos de pedido y ventas recientes para crear una lista de compras optimizada.
-          </CardDescription>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Lista de Compras Sugerida</CardTitle>
+                <CardDescription>
+                Última actualización: {generatedAt ? new Date(generatedAt).toLocaleString('es-ES') : 'Calculando...'}
+                </CardDescription>
+            </div>
+            {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
         </CardHeader>
         <CardContent>
-          <Button onClick={generateList} disabled={loading}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ShoppingCart className="mr-2 h-4 w-4" />
-            )}
-            {loading ? 'Generando...' : 'Generar Nueva Lista'}
-          </Button>
-          {error && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {purchaseList.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Lista de Compras Sugerida</CardTitle>
-             <CardDescription>
-              Generada el: {generatedAt ? new Date(generatedAt).toLocaleString('es-ES') : 'N/A'}. 
-              Esta lista se basa en los ingredientes que están por debajo de su punto de pedido.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
+          {purchaseList.length > 0 ? (
+             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Ingrediente</TableHead>
@@ -119,7 +103,8 @@ export function PurchaseListClient() {
                     <TableCell className="text-right">
                        <Button 
                         size="sm" 
-                        onClick={() => handleAddStock(item.ingredientId, item.ingredientName)}
+                        onClick={() => handleAddStock(item.ingredientId)}
+                        disabled={!purchasedQuantities[item.ingredientId]}
                         >
                           <PackagePlus className="mr-2 h-4 w-4" />
                           Agregar al Stock
@@ -129,9 +114,13 @@ export function PurchaseListClient() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+             <div className="text-center py-10 text-muted-foreground">
+                {loading ? 'Analizando tu inventario...' : '¡Todo en orden! No se necesitan compras por ahora.'}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

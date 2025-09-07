@@ -46,7 +46,7 @@ const restockSchema = z.object({
   quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
 });
 
-const unitOptions = ['g', 'kg', 'ml', 'l', 'unidades'];
+const unitOptions = ['gr', 'Kg', 'ml', 'L', 'Unidades'];
 
 export function IngredientsClient() {
   const { ingredients, addIngredient, updateIngredient, deleteIngredient, isInitialized } = useData();
