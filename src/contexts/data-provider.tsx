@@ -162,17 +162,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteRecipe = async (id: string) => {
-     const salesWithRecipeQuery = query(salesCol, where('recipeId', '==', id));
-     const querySnapshot = await getDocs(salesWithRecipeQuery);
-     if (!querySnapshot.empty) {
-        toast({
-            title: 'Error',
-            description: 'No se puede eliminar una receta con ventas registradas.',
-            variant: 'destructive'
-        });
-        return;
-     }
-
     try {
       await deleteDoc(doc(db, 'recipes', id));
       toast({ title: 'Éxito', description: 'Receta eliminada.' });
