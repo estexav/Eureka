@@ -5,12 +5,12 @@ import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/fires
 // Your web app's Firebase configuration
 // IMPORTANT: DO NOT COMMIT THIS FILE TO VERSION CONTROL
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyC-ZKdDLfdX2QT7rX0juOG6swVykHQC7Mw",
+  authDomain: "panaderia-f82de.firebaseapp.com",
+  projectId: "panaderia-f82de",
+  storageBucket: "panaderia-f82de.firebasestorage.app",
+  messagingSenderId: "740073694770",
+  appId: "1:740073694770:web:93608330858093a22cbe2b"
 };
 
 // Initialize Firebase
