@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Skeleton } from './ui/skeleton';
+import Link from 'next/link';
 
 const saleSchema = z.object({
   recipeId: z.string().min(1, 'Selecciona una receta'),
@@ -41,7 +42,7 @@ export function SalesClient() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Historial de Ventas</CardTitle>
+            <CardTitle>Ventas Recientes</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -55,6 +56,8 @@ export function SalesClient() {
       </div>
     );
   }
+
+  const recentSales = [...sales].reverse().slice(0, 5);
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -109,8 +112,11 @@ export function SalesClient() {
         </Card>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Historial de Ventas</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Ventas Recientes</CardTitle>
+          <Button asChild variant="outline" size="sm">
+              <Link href="/sales-history">Ver todo el historial</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -122,13 +128,19 @@ export function SalesClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...sales].reverse().map(sale => (
+              {recentSales.length > 0 ? recentSales.map(sale => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{getRecipeName(sale.recipeId)}</TableCell>
                   <TableCell>{sale.quantity}</TableCell>
                   <TableCell>{format(new Date(sale.date), "d MMM yyyy, HH:mm", { locale: es })}</TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    No hay ventas registradas.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
