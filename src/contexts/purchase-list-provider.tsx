@@ -2,7 +2,7 @@
 
 import { createContext, useState, ReactNode, useCallback } from 'react';
 import { generatePurchaseList, GeneratePurchaseListOutput } from '@/ai/flows/generate-purchase-list';
-import { useData } from './data-provider';
+import { useData } from '@/hooks/use-data';
 import { useToast } from '@/hooks/use-toast';
 
 type PurchaseListItem = GeneratePurchaseListOutput['purchaseList'][0] & {
