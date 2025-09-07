@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import type { Ingredient, Recipe, Sale, AppData, RecipeIngredient } from '@/lib/types';
+import type { Ingredient, Recipe, Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { 
@@ -11,7 +11,6 @@ import {
   updateDoc, 
   deleteDoc, 
   doc,
-  writeBatch,
   query,
   orderBy,
   runTransaction,
@@ -32,7 +31,6 @@ interface DataContextProps {
   addSale: (sale: Omit<Sale, 'id' | 'date'>) => void;
   getIngredientName: (id: string) => string;
   getRecipeName: (id: string) => string;
-  importData: (data: AppData) => void;
   isInitialized: boolean;
 }
 
@@ -89,9 +87,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteIngredient = async (id: string) => {
-    const isUsedQuery = query(recipesCol, where('ingredients', 'array-contains', { ingredientId: id }));
-    const querySnapshot = await getDocs(isUsedQuery);
-
     const isUsedInRecipes = recipes.some(recipe => 
       recipe.ingredients.some(ing => ing.ingredientId === id)
     );
@@ -217,35 +212,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const getIngredientName = useCallback((id: string) => ingredients.find(i => i.id === id)?.name || 'Desconocido', [ingredients]);
   const getRecipeName = useCallback((id: string) => recipes.find(r => r.id === id)?.name || 'Desconocido', [recipes]);
 
-  const importData = async (data: AppData) => {
-    const batch = writeBatch(db);
-    
-    // Clear existing data (optional, use with caution)
-    // For simplicity, we're just adding new data. A more robust solution might handle duplicates.
-    
-    data.ingredients.forEach(item => {
-        const docRef = doc(ingredientsCol, item.id || undefined);
-        batch.set(docRef, item);
-    });
-     data.recipes.forEach(item => {
-        const docRef = doc(recipesCol, item.id || undefined);
-        batch.set(docRef, item);
-    });
-     data.sales.forEach(item => {
-        const docRef = doc(salesCol, item.id || undefined);
-        batch.set(docRef, item);
-    });
-
-    try {
-        await batch.commit();
-        toast({ title: 'Éxito', description: 'Datos importados correctamente.' });
-    } catch (error) {
-        console.error("Error importing data: ", error);
-        toast({ title: 'Error', description: 'No se pudieron importar los datos.', variant: 'destructive' });
-    }
-  };
-
-
   return (
     <DataContext.Provider value={{ 
       ingredients, 
@@ -260,7 +226,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addSale,
       getIngredientName,
       getRecipeName,
-      importData,
       isInitialized
     }}>
       {children}

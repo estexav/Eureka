@@ -20,7 +20,6 @@ import {
   Carrot,
   ClipboardList,
   BrainCircuit,
-  Database,
   Cookie,
   ShoppingCart,
 } from 'lucide-react';
@@ -33,7 +32,6 @@ const menuItems = [
   { href: '/sales', label: 'Ventas', icon: ClipboardList },
   { href: '/stock-prediction', label: 'Predicción de Stock', icon: BrainCircuit },
   { href: '/purchase-list', label: 'Lista de Compras', icon: ShoppingCart },
-  { href: '/data-management', label: 'Datos', icon: Database },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

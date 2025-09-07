@@ -22,9 +22,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +45,8 @@ const restockSchema = z.object({
   ingredientId: z.string().min(1, 'Selecciona un ingrediente'),
   quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
 });
+
+const unitOptions = ['g', 'kg', 'ml', 'l', 'unidades'];
 
 export function IngredientsClient() {
   const { ingredients, addIngredient, updateIngredient, deleteIngredient, isInitialized } = useData();
@@ -184,9 +185,18 @@ export function IngredientsClient() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Unidad</FormLabel>
-                    <FormControl>
-                      <Input placeholder="g, ml, unidades" {...field} />
-                    </FormControl>
+                     <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona una unidad" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {unitOptions.map(option => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     <FormMessage />
                   </FormItem>
                 )}

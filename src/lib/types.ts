@@ -23,9 +23,3 @@ export interface Sale {
   quantity: number;
   date: string;
 }
-
-export interface AppData {
-  ingredients: Ingredient[];
-  recipes: Recipe[];
-  sales: Sale[];
-}
